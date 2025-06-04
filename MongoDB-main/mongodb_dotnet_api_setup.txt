@@ -1,0 +1,152 @@
+✅ Aufgabe 1: MongoDB + .NET Minimal API Setup
+
+🔹 MongoDB Container lokal erstellen
+
+• Volume erstellen → Für persistente Speicherung
+docker volume create mongo_data
+
+• MongoDB starten → Mit Root-User und Passwort im Hintergrund
+docker run -d   --name mongodb   -v mongo_data:/data/db   -p 27017:27017   -e MONGO_INITDB_ROOT_USERNAME=gbs   -e MONGO_INITDB_ROOT_PASSWORD=geheim   mongo
+
+
+🔹 .NET Projekt erstellen
+
+• Projektordner erstellen
+mkdir min-api-with-mongo
+cd min-api-with-mongo
+
+• Minimal API-Projekt erzeugen
+dotnet new webapi -n WebApi
+
+• In Projektordner wechseln
+cd WebApi
+
+
+🔹 MongoDB NuGet Paket installieren
+
+• MongoDB Treiber installieren
+dotnet add package MongoDB.Driver
+
+
+🔹 Test-Endpunkt `/check` hinzufügen
+
+• Verbindung zu MongoDB prüfen + Datenbanken listen
+app.MapGet("/check", () =>
+{
+    try
+    {
+        var mongoDbConnectionString = "mongodb://gbs:geheim@localhost:27017";
+        var client = new MongoClient(mongoDbConnectionString);
+        var dbs = client.ListDatabaseNames().ToList();
+        return Results.Ok("Zugriff auf MongoDB ok. Datenbanken: " + string.Join(", ", dbs));
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem("Fehler: " + ex.Message);
+    }
+});
+
+• Root-Endpunkt einfache Meldung
+app.MapGet("/", () => "Minimal API Version 1.0");
+
+
+🔹 Konfiguration in `appsettings.json` verschieben
+
+• Verbindung aus Datei statt Hardcode
+{
+  "AllowedHosts": "*",
+  "DatabaseSettings": {
+    "ConnectionString": "mongodb://gbs:geheim@localhost:27017"
+  }
+}
+
+
+🔹 Klasse für Konfiguration erstellen
+
+• Konfigurationsklasse für DI
+public class DatabaseSettings
+{
+    public string ConnectionString { get; set; } = "";
+}
+
+
+🔹 Konfiguration in `Program.cs` einbinden
+
+• Settings laden und bereitstellen
+var movieDatabaseConfigSection = builder.Configuration.GetSection("DatabaseSettings");
+builder.Services.Configure<DatabaseSettings>(movieDatabaseConfigSection);
+
+• `/check` mit DI lesen
+app.MapGet("/check", (Microsoft.Extensions.Options.IOptions<DatabaseSettings> options) =>
+{
+    try
+    {
+        var mongoDbConnectionString = options.Value.ConnectionString;
+        var client = new MongoClient(mongoDbConnectionString);
+        var dbs = client.ListDatabaseNames().ToList();
+        return Results.Ok("Zugriff auf MongoDB ok. Datenbanken: " + string.Join(", ", dbs));
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem("Fehler: " + ex.Message);
+    }
+});
+
+
+🔹 Dockerfile für WebApi
+
+• Dockerfile für WebApi-Projekt
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 5001
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY . .
+RUN dotnet restore
+RUN dotnet publish -c Release -o /app
+
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app .
+ENTRYPOINT ["dotnet", "WebApi.dll"]
+
+
+🔹 Docker Compose mit WebApi + MongoDB
+
+• Beide Dienste gemeinsam starten
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: gbs
+      MONGO_INITDB_ROOT_PASSWORD: geheim
+
+  webapi:
+    build: ./WebApi
+    ports:
+      - "5001:5001"
+    depends_on:
+      - mongodb
+    environment:
+      DatabaseSettings__ConnectionString: "mongodb://gbs:geheim@mongodb:27017"
+
+volumes:
+  mongo_data:
+
+
+🔹 Anwendung starten
+
+• Docker Compose starten
+docker compose up --build
+
+• Im Browser prüfen
+http://localhost:5001/check

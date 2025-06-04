@@ -1,0 +1,150 @@
+✅ Aufgabe 3: MongoDB-Zugriffe auslagern in Service mit Dependency Injection
+
+🔹 Interface IMovieService erstellen
+
+• Basis-Interface für Mongo-Service
+public interface IMovieService
+{
+    string Check();
+    void Create(Movie movie);
+    IEnumerable<Movie> Get();
+    Movie Get(string id);
+    void Update(string id, Movie movie);
+    void Remove(string id);
+}
+
+
+🔹 MongoMovieService implementieren
+
+• Konstruktor erhält Datenbankeinstellungen per DI
+• Zugriff auf Collection "movies" in DB "gbs"
+using Microsoft.Extensions.Options;
+using MongoDB.Driver;
+
+public class MongoMovieService : IMovieService
+{
+    private readonly IMongoCollection<Movie> _movies;
+
+    public MongoMovieService(IOptions<DatabaseSettings> options)
+    {
+        var client = new MongoClient(options.Value.ConnectionString);
+        var database = client.GetDatabase("gbs");
+        _movies = database.GetCollection<Movie>("movies");
+    }
+
+    public string Check()
+    {
+        try
+        {
+            var databases = _movies.Database.Client.ListDatabaseNames().ToList();
+            return "Zugriff auf MongoDB ok. Datenbanken: " + string.Join(", ", databases);
+        }
+        catch (Exception ex)
+        {
+            return "Fehler: " + ex.Message;
+        }
+    }
+
+    public void Create(Movie movie)
+    {
+        _movies.InsertOne(movie);
+    }
+
+    public IEnumerable<Movie> Get()
+    {
+        return _movies.Find(_ => true).ToList();
+    }
+
+    public Movie Get(string id)
+    {
+        return _movies.Find(m => m.Id == id).FirstOrDefault();
+    }
+
+    public void Update(string id, Movie movie)
+    {
+        _movies.ReplaceOne(m => m.Id == id, movie);
+    }
+
+    public void Remove(string id)
+    {
+        _movies.DeleteOne(m => m.Id == id);
+    }
+}
+
+
+🔹 Movie-Modell erweitern
+
+• Attribut für MongoDB-ID
+using MongoDB.Bson.Serialization.Attributes;
+
+public class Movie
+{
+    [BsonId]
+    public string Id { get; set; } = "";
+    public string Title { get; set; } = "";
+    public int Year { get; set; }
+    public string Summary { get; set; } = "";
+    public string[] Actors { get; set; } = Array.Empty<string>();
+}
+
+
+🔹 MongoMovieService in Program.cs registrieren
+
+• Service als Singleton hinzufügen
+builder.Services.AddSingleton<IMovieService, MongoMovieService>();
+
+
+🔹 /check-Endpunkt mit Service verwenden
+
+• Verbindungsprüfung über MovieService
+app.MapGet("/check", (IMovieService movieService) => {
+    return movieService.Check();
+});
+
+
+🔹 CRUD-Endpunkte anpassen (Verwendung des Services)
+
+• POST: Film einfügen
+app.MapPost("/api/movies", (IMovieService movieService, Movie movie) =>
+{
+    movieService.Create(movie);
+    return Results.Ok(movie);
+});
+
+• GET all: Alle Filme
+app.MapGet("/api/movies", (IMovieService movieService) =>
+{
+    return Results.Ok(movieService.Get());
+});
+
+• GET by ID
+app.MapGet("/api/movies/{id}", (IMovieService movieService, string id) =>
+{
+    var movie = movieService.Get(id);
+    return movie != null ? Results.Ok(movie) : Results.NotFound();
+});
+
+• PUT: Film aktualisieren
+app.MapPut("/api/movies/{id}", (IMovieService movieService, string id, Movie movie) =>
+{
+    var existing = movieService.Get(id);
+    if (existing == null) return Results.NotFound();
+    movieService.Update(id, movie);
+    return Results.Ok(movie);
+});
+
+• DELETE: Film löschen
+app.MapDelete("/api/movies/{id}", (IMovieService movieService, string id) =>
+{
+    var movie = movieService.Get(id);
+    if (movie == null) return Results.NotFound();
+    movieService.Remove(id);
+    return Results.Ok();
+});
+
+
+🔹 Testen der Anwendung
+
+• mit dotnet run → lokale Prüfung
+• mit docker compose up → Container-Test
+• mit Postman: alle CRUD-Endpunkte ansteuern

@@ -1,0 +1,98 @@
+✅ Aufgabe 2: CRUD Endpunkte mit Beispielcode (ohne Datenbank)
+
+🔹 Modell Movie erstellen
+
+• Film-Modell anlegen mit ID, Titel, Jahr, Zusammenfassung, Schauspieler
+public class Movie
+{
+    public string Id { get; set; } = "";
+    public string Title { get; set; } = "";
+    public int Year { get; set; }
+    public string Summary { get; set; } = "";
+    public string[] Actors { get; set; } = Array.Empty<string>();
+}
+
+
+🔹 CRUD-Endpunkte in Program.cs hinzufügen
+
+• In-Memory-Liste für Filme definieren
+var movies = new List<Movie>();
+
+
+• Insert Movie – Film einfügen, 200 OK oder 409 bei Fehler
+app.MapPost("/api/movies", (Movie movie) =>
+{
+    if (movies.Any(m => m.Id == movie.Id))
+    {
+        return Results.Conflict("Ein Film mit dieser ID existiert bereits.");
+    }
+    movies.Add(movie);
+    return Results.Ok(movie);
+});
+
+
+• Get all Movies – Alle Filme zurückgeben
+app.MapGet("/api/movies", () =>
+{
+    return Results.Ok(movies);
+});
+
+
+• Get Movie by id – Film nach ID finden
+app.MapGet("/api/movies/{id}", (string id) =>
+{
+    var movie = movies.FirstOrDefault(m => m.Id == id);
+    return movie != null ? Results.Ok(movie) : Results.NotFound();
+});
+
+
+• Update Movie – Bestehenden Film aktualisieren
+app.MapPut("/api/movies/{id}", (string id, Movie updatedMovie) =>
+{
+    var index = movies.FindIndex(m => m.Id == id);
+    if (index == -1)
+        return Results.NotFound();
+
+    movies[index] = updatedMovie;
+    return Results.Ok(updatedMovie);
+});
+
+
+• Delete Movie – Film entfernen
+app.MapDelete("/api/movies/{id}", (string id) =>
+{
+    var movie = movies.FirstOrDefault(m => m.Id == id);
+    if (movie == null)
+        return Results.NotFound();
+
+    movies.Remove(movie);
+    return Results.Ok();
+});
+
+
+🔹 Beispiel für einen spezifischen GET-Request
+
+• Beispielcode: Film mit ID "1" zurückgeben
+app.MapGet("/api/movies/{id}", (string id) =>
+{
+    if(id == "1")
+    {
+        var myMovie = new Movie()
+        {
+            Id = "1",
+            Title = "Asterix und Obelix"
+        };
+        return Results.Ok(myMovie);
+    }
+    else
+    {
+        return Results.NotFound();
+    }
+});
+
+
+🔹 Test mit Postman
+
+• JSON-Body → In Postman: Tab "Body" > raw > JSON
+• HTTP-Methode korrekt wählen: POST, GET, PUT, DELETE
+• Endpunkte testen: /api/movies, /api/movies/{id}

@@ -1,0 +1,4 @@
+docker volume create <volume_name>
+
+docker run -d --name mongo_container -p 27017:27017 -v <volume_name>:/data/db -e MONGO_INITDB_ROOT_USERNAME=gbs -e MONGO_INITDB_ROOT_PASSWORD=geheim mongo_container
+

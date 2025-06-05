@@ -1,0 +1,39 @@
+###
+ GET http://localhost:5001
+
+### Post
+POST http://localhost:5001/api/movies
+Content-Type: application/json
+
+{ 
+    "id": "1",
+    "Title": "Star Wars",
+    "Year": 1977,
+    "Summary": "A new hope",
+    "Actors": ["Hamill", "Ford"]
+}
+
+### get all movies
+get http://localhost:5001/api/movies
+Content-Type: application/json
+
+
+### get movie by id
+GET http://localhost:5001/api/movies/1
+Content-Type: application/json
+
+### update movie
+PUT http://localhost:5001/api/movies/2
+Content-Type: application/json
+
+{ 
+    "id": "2",
+    "Title": "Star Wars",
+    "Year": 1977,
+    "Summary": "A new hope",
+    "Actors": ["Hamill", "Ford"]
+}
+
+### delete movie
+DELETE  http://localhost:5001/api/movies/1
+Content-Type: application/json

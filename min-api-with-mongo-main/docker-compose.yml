@@ -1,0 +1,26 @@
+services:
+  mongodb:
+    image: mongo
+    ports: 
+      - "27017:27017"
+    container_name: "mongodb"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - mongoapisite
+  webapi:
+    build: ./WebApi
+    restart: always
+    ports:
+      - 5001:5001
+    depends_on:
+      - mongodb
+    environment:
+      - DatabaseSettings__ConnectionString="mongodb://mongodb:27017"
+    networks:
+      - mongoapisite
+networks:
+  mongoapisite:
+    driver: bridge
+volumes:
+  mongodb:
